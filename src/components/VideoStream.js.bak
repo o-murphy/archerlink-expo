@@ -1,0 +1,143 @@
+import React, {useEffect, useRef, useState} from 'react';
+import {View} from 'react-native-web';
+import {Text} from "react-native-paper";
+import {Platform} from 'react-native';
+import Canvas from 'react-native-canvas';
+import Spinner from "./Spinner";
+import styles from '../styles';
+
+// const BASE_LOCATION = __DEV__ ? '127.0.0.1:15010' : window.location.host;
+const BASE_LOCATION = __DEV__ ? '127.0.0.1:8000' : window.location.host;
+
+const VideoStream = () => {
+    const canvasRef = useRef(null);
+    const socketRef = useRef(null);
+    const reconnectTimeoutRef = useRef(null);
+    const [hasFrame, setHasFrame] = useState(false);
+    const [hasWifi, setHasWifi] = useState(false);
+
+    useEffect(() => {
+        connectWebSocket();
+
+        // Clean up on component unmount
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.close();
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const connectWebSocket = () => {
+        const socket = new WebSocket(`ws://${BASE_LOCATION}/ws`);
+        socketRef.current = socket;
+
+        socket.onopen = () => {
+            console.log('WebSocket connected');
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            } catch (error) {
+                console.error('Error parsing data:', error);
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket disconnected');
+            setHasFrame(false);
+            if (socketRef.current) {
+                socketRef.current = null;
+            }
+            // Attempt to reconnect after a delay
+            reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
+        };
+    };
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            // Set the initial canvas dimensions based on the parent container
+            const resizeCanvas = () => {
+                const container = canvas.parentNode;
+                if (container) {
+                    const {width, height} = container.getBoundingClientRect();
+                    canvas.width = width;
+                    canvas.height = height;
+                }
+            };
+
+            // Call resizeCanvas once initially to set the dimensions
+            resizeCanvas();
+
+            // Add an event listener to handle window resizing
+            window.addEventListener('resize', resizeCanvas);
+
+            // Clean up the event listener when the component is unmounted
+            return () => window.removeEventListener('resize', resizeCanvas);
+        }
+    }, [hasFrame]);
+
+    const handleWebSocketMessage = (data) => {
+        if (data) {
+            if (data.image) {
+                const {image} = data;
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = canvasRef.current;
+                    if (canvas) {
+                        const context = canvas.getContext('2d');
+                        if (context) {
+                            context.imageSmoothingEnabled = false; // Disable image smoothing
+                            context.clearRect(0, 0, canvas.width, canvas.height); // Clear the previous frame
+                            context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        }
+                    }
+                };
+                img.src = 'data:image/jpeg;base64,' + image;
+                setHasFrame(true);
+            } else {
+                setHasFrame(false);
+                setHasWifi(data.is_wifi === true)
+            }
+        }
+    };
+
+    return (
+        <View style={styles.videoViewContainer}>
+            {hasFrame ? (
+                Platform.OS === 'web' ? (
+                    <canvas ref={canvasRef} style={styles.canvas}/>
+                ) : (
+                    <Canvas ref={canvasRef} style={styles.canvas}/>
+                )
+            ) : (
+                <View>
+                    <Text style={styles.errorMessage}>{
+                        hasWifi ?
+                            "No stream available,\ntrying to connect..."
+                            : "No WiFi connection" +
+                            "\nConnect please"
+                    }</Text>
+                    {!hasWifi ? <Text style={styles.errorHint}>
+                        {"Use the access point that matches\nthe last four digits\nof the device serial number"}
+                    </Text> : null}
+                    {hasWifi ? <Spinner/> : null}
+                </View>
+            )}
+        </View>
+    );
+};
+
+export default VideoStream;

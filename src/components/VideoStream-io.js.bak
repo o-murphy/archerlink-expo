@@ -1,0 +1,127 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native-web';
+import { Text } from "react-native-paper";
+import { Platform } from 'react-native';
+import Canvas from 'react-native-canvas';
+import Spinner from "./Spinner";
+import styles from '../styles';
+import io from 'socket.io-client';
+
+const BASE_LOCATION = __DEV__ ? '127.0.0.1:8000' : window.location.host;
+
+const VideoStream = () => {
+    const canvasRef = useRef(null);
+    const socketRef = useRef(null);
+    const [hasFrame, setHasFrame] = useState(false);
+    const [hasWifi, setHasWifi] = useState(false);
+
+    useEffect(() => {
+        connectSocket();
+
+        // Clean up on component unmount
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+            }
+        };
+    }, []);
+
+    const connectSocket = () => {
+        const socket = io(`http://${BASE_LOCATION}`);
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
+            console.log('Socket connected');
+        });
+
+        socket.on('frame', (data) => {
+            handleSocketMessage(data);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Socket disconnected');
+            setHasFrame(false);
+            // Attempt to reconnect after a delay
+            setTimeout(connectSocket, 3000);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Socket connect error:', error);
+        });
+
+        socket.on('error', (error) => {
+            console.error('Socket error:', error);
+        });
+    };
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const resizeCanvas = () => {
+                const container = canvas.parentNode;
+                if (container) {
+                    const { width, height } = container.getBoundingClientRect();
+                    canvas.width = width;
+                    canvas.height = height;
+                }
+            };
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            return () => window.removeEventListener('resize', resizeCanvas);
+        }
+    }, [hasFrame]);
+
+const handleSocketMessage = (data) => {
+    if (data) {
+        if (data.stream && data.stream.frame && data.stream.state === "Running") {
+            const { frame } = data.stream;
+            const img = new Image();
+            img.onload = () => {
+                console.log(img.width)
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const context = canvas.getContext('2d');
+                    if (context) {
+                        context.imageSmoothingEnabled = false; // Ensure image smoothing is disabled
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    }
+                }
+            };
+            img.src = 'data:image/jpeg;base64,' + frame;
+            setHasFrame(true);
+        } else {
+            setHasFrame(false);
+            setHasWifi(data.wifi === true);
+        }
+    }
+};
+
+    return (
+        <View style={styles.videoViewContainer}>
+            {hasFrame ? (
+                Platform.OS === 'web' ? (
+                    <canvas ref={canvasRef} style={styles.canvas} />
+                ) : (
+                    <Canvas ref={canvasRef} style={styles.canvas} />
+                )
+            ) : (
+                <View>
+                    <Text style={styles.errorMessage}>{
+                        hasWifi ?
+                            "No stream available,\ntrying to connect..."
+                            : "No WiFi connection" +
+                            "\nConnect please"
+                    }</Text>
+                    {!hasWifi ? <Text style={styles.errorHint}>
+                        {"Use the access point that matches\nthe last four digits\nof the device serial number"}
+                    </Text> : null}
+                    {hasWifi ? <Spinner /> : null}
+                </View>
+            )}
+        </View>
+    );
+};
+
+export default VideoStream;
