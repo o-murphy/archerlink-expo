@@ -1,105 +1,79 @@
-import React, {useEffect, useState} from "react";
-import {View} from "react-native";
-import {FAB} from "react-native-paper";
+import React, { useState } from "react";
+import { View } from "react-native";
+import { FAB } from "react-native-paper";
 import styles from "../styles";
-import {useDevControlWS} from "../providers/devControlWSProvider";
+import useDevControlWS from "../hooks/devControlWS";
 import * as control from "../proto/control.js";
 
-const DevControlView = () => {
+const BASE_LOCATION = !__DEV__ ?
+  'ws://stream.trailcam.link:8080/websocket'
+  : 'ws://192.168.100.1:8080/websocket';
 
-    const {socket} = useDevControlWS();
+const DevControlView: React.FC = () => {
+  const { sendMessage, response, error } = useDevControlWS(BASE_LOCATION);
 
-    useEffect(() => {
-        if (!socket) return;
-        return () => {
-            if (socket) {
-            }
-        }
-    })
-
-    const sendDataToSocket = (data: string) => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(data);
-            console.log('Sent data to socket:', data);
-        } else {
-            console.error('WebSocket is not open to send data');
-        }
-    };
-
-    const updateDevStatusAndCall = async (callback: any) => {
-        if (socket) {
-            socket.addEventListener('message', callback)
-            sendDataToSocket(control.buildGetCurrentDevStatusPayload())
-        }
+  const getDeviceState = async () => {
+    const payload = control.buildGetCurrentDevStatusPayload();
+    const statusResponse = await sendMessage(payload);
+    const devstatus = await control.parseGetCurrentDevStatus(statusResponse)
+    if (devstatus.devstatus) {
+        return devstatus.devstatus
     }
+    return null
+  };
 
-    const changeSchemeCallback = async (event: any) => {
-        if (socket) {
-            socket.removeEventListener('message', changeSchemeCallback)
-        }
-        if (event?.data) {
-            const parsedData = await control.parseGetCurrentDevStatus(event.data);
-            if (parsedData?.devstatus) {
-                console.log(parsedData.devstatus.zoom)
-                const payload = control.buildSetColorScheme(
-                    parsedData.devstatus.colorscheme,
-                )
-                sendDataToSocket(payload)
-            }
-        }
+  const onShemePress = async () => {
+    try {
+      const devstatus = await getDeviceState()
+      if (devstatus?.colorscheme) {
+        const payload = control.buildSetColorScheme(devstatus.colorscheme);
+        const colorSchemeResponse = await sendMessage(payload);
+        console.log('Received color scheme response:', colorSchemeResponse);
+      }
+    } catch (error) {
+      console.error('Error in onShemePress:', error);
     }
+  };
 
-    const changeAGCCallback = async (event: any) => {
-        if (socket) {
-            socket.removeEventListener('message', changeAGCCallback)
-        }
-        if (event?.data) {
-            const parsedData = await control.parseGetCurrentDevStatus(event.data);
-            if (parsedData?.devstatus) {
-                console.log(parsedData.devstatus.modagc)
-                const payload = control.buildSetAgcModePayload(
-                    parsedData.devstatus.modagc
-                )
-                sendDataToSocket(payload)
-            }
-        }
+  const onAGCPress = async () => {
+    try {
+      const devstatus = await getDeviceState()
+      if (devstatus?.modagc) {
+        const payload = control.buildSetAgcModePayload(devstatus.modagc);
+        const agcModeResponse = await sendMessage(payload);
+        console.log('Received agc mode response:', agcModeResponse);
+      }
+    } catch (error) {
+      console.error('Error in onAGCPress:', error);
     }
+  };
 
-    const changeZoomCallback = async (event: any) => {
-        if (socket) {
-            socket.removeEventListener('message', changeZoomCallback)
-        }
-        if (event?.data) {
-            const parsedData = await control.parseGetCurrentDevStatus(event.data);
-            if (parsedData?.devstatus) {
-                console.log(parsedData.devstatus.zoom)
-                const payload = control.buildSetZoomLevelPayload(
-                    parsedData.devstatus.zoom,
-                    parsedData.devstatus.maxzoom
-                )
-                sendDataToSocket(payload)
-            }
-        }
+  const onZoomPress = async () => {
+    try {
+      const devstatus = await getDeviceState()
+      if (devstatus) {
+        const payload = control.buildSetZoomLevelPayload(devstatus.zoom, devstatus.maxzoom);
+        const zoomLevelResponse = await sendMessage(payload);
+        console.log('Received zoom level response:', zoomLevelResponse);
+      }
+    } catch (error) {
+      console.error('Error in onZoomPress:', error);
     }
+  };
 
-    const onShemePress = async () => updateDevStatusAndCall(changeSchemeCallback)
-    const onAGCPress = async () => updateDevStatusAndCall(changeAGCCallback)
-    const onZoomPress = async () => updateDevStatusAndCall(changeZoomCallback)
+  const toggleFFCCallback = () => {
+    const message = control.buildTriggerFFCPayload();
+    sendMessage(message);
+  };
 
-    const toggleFFCCallback = async () => {
-        if (socket) {
-            const payload = control.buildTriggerFFCPayload();
-            sendDataToSocket(payload)
-        }
-    }
-
-    return (
-        <View style={styles.rightColumn}>
-            <FAB size="medium" icon="palette" style={styles.fab} onPress={onShemePress}/>
-            <FAB size="medium" icon="image" style={styles.fab} onPress={onAGCPress}/>
-            <FAB size="medium" icon="loupe" style={styles.fab} onPress={onZoomPress}/>
-            <FAB size="medium" icon="camera-iris" style={styles.fab} onPress={toggleFFCCallback}/>
-        </View>)
+  return (
+    <View style={styles.rightColumn}>
+      <FAB size="medium" icon="palette" style={styles.fab} onPress={onShemePress} />
+      <FAB size="medium" icon="image" style={styles.fab} onPress={onAGCPress}/>
+      <FAB size="medium" icon="loupe" style={styles.fab} onPress={onZoomPress}/>
+      <FAB size="medium" icon="camera-iris" style={styles.fab} onPress={toggleFFCCallback} />
+    </View>
+  );
 }
 
-export default DevControlView
+export default DevControlView;

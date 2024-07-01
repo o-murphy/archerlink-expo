@@ -51,20 +51,23 @@ export const buildTriggerFFCPayload = () => {
 };
 
 const getNextZoomLevel = (currentZoom, maxZoom) => {
-    const Zoom = protocol.Zoom;
-
     // Convert the enum values to an array and get their keys
+    const Zoom = protocol.Zoom
     const zoomLevels = Object.keys(Zoom)
         .filter(key => !isNaN(Number(Zoom[key]))) // Filter out non-numeric keys
         .map(key => Zoom[key])
-        .filter(value => value !== Zoom.UNKNOWN_ZOOM_LEVEL) // Filter out UNKNOWN_ZOOM_LEVEL
-        .filter(value => value <= maxZoom); // Filter out zoom levels greater than maxZoom
+        .filter(value => value !== Zoom.UNKNOWN_ZOOM_LEVEL); // Filter out UNKNOWN_ZOOM_LEVEL
+
+    // Filter by maxZoom if maxZoom > UNKNOWN_ZOOM_LEVEL
+    const filteredZoomLevels = maxZoom > Zoom.UNKNOWN_ZOOM_LEVEL
+        ? zoomLevels.filter(value => value <= maxZoom)
+        : zoomLevels;
 
     // Find the index of the current zoom level
-    const currentIndex = zoomLevels.indexOf(currentZoom);
+    const currentIndex = filteredZoomLevels.indexOf(currentZoom);
 
     // Debugging information
-    console.log("Zoom Levels Array:", zoomLevels);
+    console.log("Zoom Levels Array:", filteredZoomLevels);
     console.log("Current Zoom:", currentZoom);
     console.log("Current Index:", currentIndex);
 
@@ -73,13 +76,13 @@ const getNextZoomLevel = (currentZoom, maxZoom) => {
     }
 
     // Calculate the next index in a circular manner
-    const nextIndex = (currentIndex + 1) % zoomLevels.length;
+    const nextIndex = (currentIndex + 1) % filteredZoomLevels.length;
 
     // Debugging information
     console.log("Next Index:", nextIndex);
-    console.log("Next Zoom Level:", zoomLevels[nextIndex]);
+    console.log("Next Zoom Level:", filteredZoomLevels[nextIndex]);
 
-    return zoomLevels[nextIndex];
+    return filteredZoomLevels[nextIndex];
 };
 
 export const buildSetZoomLevelPayload = (zoomCur, zoomMax) => {
@@ -185,7 +188,9 @@ export const buildSetColorScheme = (colorScheme) => {
 
     // Create a Command message and set the SetColorScheme message
     const command = new protocol.Command();
-    command.setColorScheme(setColor);
+    console.log('command', command)
+
+    command.setSetpallette(setColor);
 
     // Create a ClientPayload message and set the Command message
     const clientPayload = new protocol.ClientPayload();
