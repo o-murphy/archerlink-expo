@@ -5,7 +5,7 @@ import styles from "../styles";
 import useDevControlWS from "../hooks/devControlWS";
 import * as control from "../proto/control.js";
 
-const BASE_LOCATION = !__DEV__ ?
+const BASE_LOCATION = __DEV__ ?
   'ws://stream.trailcam.link:8080/websocket'
   : 'ws://192.168.100.1:8080/websocket';
 
