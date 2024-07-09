@@ -19,7 +19,7 @@ interface AppControlWSProviderProps {
     children: ReactNode;
 }
 
-const BASE_LOCATION = __DEV__ ? 'http://127.0.0.1:8000' : window.location.origin;
+const BASE_LOCATION = __DEV__ ? 'http://127.0.0.1:15010' : window.location.origin;
 
 export const AppControlWSProvider: React.FC<AppControlWSProviderProps> = ({children}) => {
     const socketRef = useRef<Socket | null>(null);
