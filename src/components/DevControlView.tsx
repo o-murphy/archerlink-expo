@@ -3,11 +3,14 @@ import { View } from "react-native";
 import { FAB } from "react-native-paper";
 import styles from "../styles";
 import useDevControlWS from "../hooks/devControlWS";
-import * as control from "../proto/control.js";
+// import * as control from "../proto/control.js";
+import {archerCommandBuild as control} from "@archerlink/protocol";
 
-const BASE_LOCATION = __DEV__ ?
-  'ws://stream.trailcam.link:8080/websocket'
-  : 'ws://192.168.100.1:8080/websocket';
+// const BASE_LOCATION = __DEV__ ?
+//   'ws://stream.trailcam.link:8080/websocket'
+//   : 'ws://192.168.100.1:8080/websocket';
+
+  const BASE_LOCATION = 'ws://192.168.100.1:8080/websocket'
 
 const DevControlView: React.FC = () => {
   const { sendMessage, response, error } = useDevControlWS(BASE_LOCATION);

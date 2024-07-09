@@ -10,6 +10,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@archerlink/protocol": "^1.0.0",
     "@expo/metro-runtime": "~3.2.1",
     "@types/react-dom": "^18.3.0",
     "expo": "^51.0.14",
