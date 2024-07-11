@@ -39,7 +39,8 @@ export const AppControlWSProvider: React.FC<AppControlWSProviderProps> = ({child
             const newSocket = io(
                 BASE_LOCATION,
                 {
-                    path: '/ws'
+                    path: '/ws/socket.io',
+                    transports: ['websocket', 'polling', 'flashsocket']
                 }
             ); // Replace with your server URL
             socketRef.current = newSocket;
