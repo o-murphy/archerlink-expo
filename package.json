@@ -1,6 +1,6 @@
 {
   "name": "client-native",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "main": "expo/AppEntry.js",
   "proxy": "http://127.0.0.1:15010",
   "scripts": {
